@@ -16,10 +16,12 @@ class DaqBot:
                  log,
                  monitor: olmo.Monitor,
                  slackapi: daq_bot.DaqSlackUpload,
+                 figures_base: str,
                  testing: bool = True):
         self.log = log
         self.monitor = monitor
         self.slackapi = slackapi
+        self.figures_base = figures_base
         self.interval = None
         self.testing = testing
 
@@ -28,6 +30,8 @@ class DaqBot:
         if not len(runs):
             self.log.info('No runs')
             return
+        # Rotate save folder for bookkeeping
+        self.set_figure_folder()
         path = monitor._single_fig(run_id=runs)
         dt = self.interval[1] - self.interval[0]
         message = (f'Online monitor update {runs[0]}-{runs[-1]}, next will be in '
@@ -75,6 +79,12 @@ class DaqBot:
                 self.log.critical(f'{e}, stopping')
                 break
 
+    def set_figure_folder(self,):
+        now = datetime.datetime.utcnow()
+        dest = os.path.join(self.figures_base, f'{now.month:02}.{now.day:02}')
+        os.makedirs(dest, exist_ok=True)
+        self.monitor.set_config({'store_figures_at': dest})
+        self.log.debug(f'Set folder to {dest}')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -119,13 +129,11 @@ if __name__ == '__main__':
 
     log.info('Starting')
     monitor = olmo.Monitor()
-    os.makedirs(args.store_at, exist_ok=True)
-    monitor.set_config({'store_figures_at': args.store_at})
     slackapi = daq_bot.DaqSlackUpload(args.slack_channel)
     log.info('Started')
 
     log.info('Getting bot')
-    bot = DaqBot(log, monitor, slackapi, args.test)
+    bot = DaqBot(log, monitor, slackapi, figures_base=args.store_at, testing=args.test, )
     log.info('Starting loop')
     bot.infinite_loop(dt=float(args.interval), only_new=not args.plot_old)
     log.info('Shut down nicely, bye bye')
