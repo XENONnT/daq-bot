@@ -13,6 +13,7 @@ log = logging.getLogger()
 
 
 class DaqSlackUpload:
+    """DAQ wrapper for uploading files and sending messages to the """
     def __init__(self, channel_name):
         token = utilix.uconfig.get('slack', 'slack_api_token')
         self.client = WebClient(token=token)

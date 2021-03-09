@@ -8,10 +8,15 @@ import pytz
 import time
 import online_monitor as olmo
 import os
+import typing
 
 
 class DaqBot:
-    def __init__(self, log, monitor, slackapi, testing=True):
+    def __init__(self,
+                 log,
+                 monitor: olmo.Monitor,
+                 slackapi: daq_bot.DaqSlackUpload,
+                 testing: bool = True):
         self.log = log
         self.monitor = monitor
         self.slackapi = slackapi
@@ -19,33 +24,43 @@ class DaqBot:
         self.testing = testing
 
     def make_figure(self, runs):
-        # selected_runs = [r for r in runs if monitor.st.is_stored(r, 'online_peak_monitor')]
+        """Make a figure in the online monitor based on the selected figures"""
         if not len(runs):
             self.log.info('No runs')
             return
         path = monitor._single_fig(run_id=runs)
         dt = self.interval[1] - self.interval[0]
-        message = (f'Online monitor update {runs[0]}-{runs[-1]}, next will be at '
-                   f'{dt.seconds/3600:.1f} h. '
+        message = (f'Online monitor update {runs[0]}-{runs[-1]}, next will be in '
+                   f'{dt.seconds / 3600:.1f} h. '
                    f'See #online-monitor-plots for more plots.')
         if not self.testing:
+            # DO the slack upload
             response = self.slackapi.send_file(message, path)
             self.log.info(f'Upload successful {response}')
 
     def set_new_interval(self, dt):
+        """If not set, get it starting from midnight, otherwise just up with dt hours"""
         if self.interval is None:
             self.interval = daq_bot.get_time_intervals(dt)
         else:
             self.interval[0] += datetime.timedelta(hours=dt)
             self.interval[1] += datetime.timedelta(hours=dt)
 
-    def infinite_loop(self, dt, only_new=True):
+    def infinite_loop(self,
+                      dt: typing.Union[int, float],
+                      only_new: bool = True) -> None:
+        """
+        Keep sending messages to slack every dt hours
+        :param dt: time in hours
+        :param only_new: if true, only plot new data (don't bloat slack with old figures)
+        :return: None
+        """
         self.set_new_interval(dt)
         while True:
             while self.interval[-1] > datetime.datetime.now():
                 self.log.debug(f'Sleep, out of interval {self.interval}')
-                time.sleep(5*60)
-            if only_new and (datetime.datetime.now() - self.interval[-1]).seconds > 3600:
+                time.sleep(5 * 60)
+            if only_new and (datetime.datetime.now() - self.interval[-1]).seconds > 15 * 60:
                 self.log.warning(f'Skipping {self.interval} since it is old')
                 self.set_new_interval(dt)
                 continue
@@ -66,34 +81,33 @@ if __name__ == '__main__':
         description="Online monitor slack bot")
     parser.add_argument(
         '--store_at', type=str, default='./figures',
-        help="")
+        help="Where to store the figures (should be a folder)")
     parser.add_argument(
         '--interval', type=float, default=12.,
-        help="")
+        help="Interval [hours] how often to upload a file")
     parser.add_argument(
         '--slack_channel', type=str, default='ch_test',
-        help="")
+        help="The slack channel to post the outcome at choose from "
+             "[ch_test, ch_operations ch_om_plots]")
     parser.add_argument(
         '--logging_level', type=str, default='INFO',
-        help="")
+        help="Level of logger")
     parser.add_argument(
         '--test', action='store_true',
-        help="")
+        help="Flag to prevent uploads")
     parser.add_argument(
         '--plot_old', action='store_true',
-        help="")
+        help="Start plotting from all of the plots that could be made today.")
 
-    # actions = parser.add_mutually_exclusive_group()
-    # actions.add_argument(
-    #     '--process', type=int, metavar='NUMBER',
     args = parser.parse_args()
-    #     help="Process a single run, regardless of its status.")
-
     hostname = socket.getfqdn()
 
     try:
-        raise ModuleNotFoundError
+        if not os.path.exists('/daq_common'):
+            # You are not on the daq
+            raise ModuleNotFoundError
         import daqnt
+
         log_name = 'daq-bot_' + hostname
         log = daqnt.get_daq_logger(log_name, log_name, level=args.logging_level)
     except ModuleNotFoundError:
@@ -114,3 +128,4 @@ if __name__ == '__main__':
     bot = DaqBot(log, monitor, slackapi, args.test)
     log.info('Starting loop')
     bot.infinite_loop(dt=float(args.interval), only_new=not args.plot_old)
+    log.info('Shut down nicely, bye bye')
