@@ -13,7 +13,7 @@ with open('HISTORY.md') as file:
     history = file.read()
 
 setuptools.setup(name='daq_bot',
-                 version='0.0.0',
+                 version='0.0.1',
                  description='DAQ bot for slack',
                  author='Joran Angevaare',
                  url='https://github.com/XENONnT/OnlineMonitor',
