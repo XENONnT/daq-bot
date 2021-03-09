@@ -1,0 +1,36 @@
+# Test package every time
+
+name: Test package
+
+# Controls when the action will run.
+
+# Trigger this code when a new release is published
+on:
+  workflow_dispatch:
+  release:
+    types: [created]
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.6'
+      - name: Checkout repo
+        uses: actions/checkout@v2
+      - name: Install python dependencies
+        uses: py-actions/py-dependency-install@v2
+      - name: Install olmo
+        run: python setup.py develop
+      - name: Install pytest
+        run: pip install pytest
+      - name: Test package
+        run: |
+          pytest --verbose test/test_core.py
+      - name: goodbye
+        run: echo goodbye
