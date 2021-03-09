@@ -50,3 +50,5 @@ docs/_build
 
 # coverage
 .coverage
+
+figures
