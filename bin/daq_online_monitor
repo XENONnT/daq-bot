@@ -1,0 +1,108 @@
+#!/usr/bin/env python
+import logging
+import argparse
+import socket
+import daq_bot
+import datetime
+import pytz
+import time
+import online_monitor as olmo
+import os
+
+
+class DaqBot:
+    def __init__(self, log, monitor, slackapi):
+        self.log = log
+        self.monitor = monitor
+        self.slackapi = slackapi
+        self.interval = None
+
+    def make_figure(self, runs):
+        # selected_runs = [r for r in runs if monitor.st.is_stored(r, 'online_peak_monitor')]
+        if not len(runs):
+            self.log.info('No runs')
+            return
+        path = monitor._single_fig(run_id=runs)
+        dt = self.interval[1] - self.interval[0]
+        message = (f'Online monitor update, next will be in '
+                   f'{dt.seconds/3600:.1f} h. '
+                   f'See #online-monitor-plots for more.')
+        response = self.slackapi.send_file(message, path)
+        self.log.info(f'Upload successful {response}')
+
+    def set_new_interval(self, dt):
+        if self.interval is None:
+            self.interval = daq_bot.get_time_intervals(dt)
+        else:
+            self.interval[0] += datetime.timedelta(hours=dt)
+            self.interval[1] += datetime.timedelta(hours=dt)
+
+    def infinite_loop(self, dt):
+        self.set_new_interval(dt)
+        while True:
+            while self.interval[-1] > datetime.datetime.now():
+                self.log.debug(f'Sleep, out of interval {self.interval}')
+                time.sleep(5*60)
+            try:
+                runs = daq_bot.get_runs(*self.interval)
+                self.make_figure(runs)
+                self.set_new_interval(dt)
+            except Exception as e:
+                self.log.critical(f'Ran into {e}, sleep and retry', exc_info=e)
+                time.sleep(10 * 60)
+            except (SystemError, SystemExit, KeyboardInterrupt) as e:
+                self.log.critical(f'{e}, stopping')
+                break
+
+            # if (datetime.datetime.now(pytz.utc) - self.interval[-1]).seconds > 3600:
+            #     self.log.warning(f'Could not get the data for {self.interval} requesting a new one')
+            #     self.set_new_interval(dt)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description="Online monitor slack bot")
+    parser.add_argument(
+        '--store_at', type=str, default='./figures',
+        help="")
+    parser.add_argument(
+        '--interval', type=float, default=12.,
+        help="")
+    parser.add_argument(
+        '--slack_channel', type=str, default='ch_test',
+        help="")
+    parser.add_argument(
+        '--logging_level', type=str, default='INFO',
+        help="")
+
+    # actions = parser.add_mutually_exclusive_group()
+    # actions.add_argument(
+    #     '--process', type=int, metavar='NUMBER',
+    #     help="Process a single run, regardless of its status.")
+    args = parser.parse_args()
+
+    hostname = socket.getfqdn()
+
+    try:
+        raise ModuleNotFoundError
+        import daqnt
+        log_name = 'daq-bot_' + hostname
+        log = daqnt.get_daq_logger(log_name, log_name, level=args.logging_level)
+    except ModuleNotFoundError:
+        logging.basicConfig(
+            level=getattr(logging, args.logging_level.upper()),
+            format='%(asctime)s %(name)s %(levelname)-8s %(message)s',
+            datefmt='%m-%d %H:%M')
+        log = logging.getLogger()
+
+    log.info('Starting')
+    monitor = olmo.Monitor()
+    os.makedirs(args.store_at, exist_ok=True)
+    monitor.set_config({'store_figures_at': args.store_at})
+    slackapi = daq_bot.DaqSlackUpload(args.slack_channel)
+    log.info('Started')
+
+    log.info('Getting bot')
+    bot = DaqBot(log, monitor, slackapi)
+    log.info('Starting loop')
+    bot.infinite_loop(dt=float(args.interval))
