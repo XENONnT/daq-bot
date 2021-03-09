@@ -1,6 +1,6 @@
 strax
 straxen
-online_monitor
 utilix
 slack
 slackclient
+# online_monitor -> for online monitor slack bot
