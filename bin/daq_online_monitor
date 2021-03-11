@@ -86,6 +86,7 @@ class DaqBot:
         self.monitor.set_config({'store_figures_at': dest})
         self.log.debug(f'Set folder to {dest}')
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Online monitor slack bot")
@@ -110,7 +111,7 @@ if __name__ == '__main__':
         help="Start plotting from all of the plots that could be made today.")
 
     args = parser.parse_args()
-    hostname = socket.getfqdn()
+    hostname = socket.gethostname()
 
     try:
         if not os.path.exists('/daq_common'):
@@ -118,7 +119,7 @@ if __name__ == '__main__':
             raise ModuleNotFoundError
         import daqnt
 
-        log_name = 'daq-bot_' + hostname
+        log_name = f'daq-bot_{hostname}_{args.slack_channel}'
         log = daqnt.get_daq_logger(log_name, log_name, level=args.logging_level)
     except ModuleNotFoundError:
         logging.basicConfig(
