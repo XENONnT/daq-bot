@@ -111,7 +111,7 @@ if __name__ == '__main__':
         help="Start plotting from all of the plots that could be made today.")
 
     args = parser.parse_args()
-    hostname = socket.socket.gethostname()
+    hostname = socket.gethostname()
 
     try:
         if not os.path.exists('/daq_common'):
