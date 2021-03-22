@@ -24,7 +24,8 @@ class DaqSlackUpload:
         log.debug(f'Writing to {channel_name}:{self.channel_key}')
 
     def send_message(self, message):
-        response = self.client.chat_postMessage(self.channel_key, message)
+        response = self.client.chat_postMessage(channels=self.channel_key,
+                                                text=message)
         log.debug(f'Got {response} while writing {message} to {self.channel_key}')
         return response
 
