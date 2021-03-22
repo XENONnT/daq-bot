@@ -1,6 +1,7 @@
 slack
 slackclient
 utilix
+pytz
 # Optional:
 # strax
 # straxen
