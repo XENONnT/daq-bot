@@ -9,11 +9,12 @@ logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s %(name)s %(levelname)-8s %(message)s',
     datefmt='%m-%d %H:%M')
-log = logging.getLogger()
+log = logging.getLogger('Slackbot')
 
 
 class DaqSlackUpload:
     """DAQ wrapper for uploading files and sending messages to the slack-bot"""
+
     def __init__(self, channel_name, token=None, channel_key=None):
         if token is None:
             token = utilix.uconfig.get('slack', 'slack_api_token')

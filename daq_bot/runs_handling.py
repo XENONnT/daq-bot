@@ -11,15 +11,16 @@ logging.basicConfig(
     datefmt='%m-%d %H:%M')
 log = logging.getLogger()
 
-run_col = utilix.rundb.xent_collection()
-
 
 def get_runs(start: datetime.datetime,
-             stop: typing.Optional[datetime.datetime]=None,
-             detectors: str='tpc')->typing.List[str]:
+             stop: typing.Optional[datetime.datetime] = None,
+             detectors: str = 'tpc',
+             run_col=None) -> typing.List[str]:
     """Get all the runs at least partially contained in the interval start-stop"""
     if stop is None:
         stop = start + datetime.timedelta(days=10000)
+    if run_col is None:
+        run_col = utilix.rundb.xent_collection()
 
     # Should query runs that are partially within the start, stop:
     # Run interval |1----|2----|3----|4----|
