@@ -13,11 +13,14 @@ log = logging.getLogger()
 
 
 class DaqSlackUpload:
-    """DAQ wrapper for uploading files and sending messages to the """
-    def __init__(self, channel_name):
-        token = utilix.uconfig.get('slack', 'slack_api_token')
+    """DAQ wrapper for uploading files and sending messages to the slack-bot"""
+    def __init__(self, channel_name, token=None, channel_key=None):
+        if token is None:
+            token = utilix.uconfig.get('slack', 'slack_api_token')
+        if channel_key is None:
+            channel_key = utilix.uconfig.get('slack', channel_name)
+        self.channel_key = channel_key
         self.client = WebClient(token=token)
-        self.channel_key = utilix.uconfig.get('slack', channel_name)
         log.debug(f'Writing to {channel_name}:{self.channel_key}')
 
     def send_message(self, message):
