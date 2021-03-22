@@ -30,10 +30,6 @@ jobs:
           pip install slackclient
       - name: Install python dependencies
         uses: py-actions/py-dependency-install@v2
-      - name: Install requirements
-        run:
-          |
-          pip install -r requirements.txt
       - name: Install daqnt
         run: python setup.py develop
       - name: Install pytest
