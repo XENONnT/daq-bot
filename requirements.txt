@@ -1,6 +1,7 @@
-strax
-straxen
-utilix
 slack
 slackclient
+# Optional:
+# strax
+# straxen
+# utilix
 # online_monitor -> for online monitor slack bot
