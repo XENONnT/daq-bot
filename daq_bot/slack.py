@@ -5,12 +5,6 @@ import utilix
 import os
 import logging
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s %(name)s %(levelname)-8s %(message)s',
-    datefmt='%m-%d %H:%M')
-log = logging.getLogger('Slackbot')
-
 
 class DaqSlackUpload:
     """DAQ wrapper for uploading files and sending messages to the slack-bot"""
@@ -22,12 +16,13 @@ class DaqSlackUpload:
             channel_key = utilix.uconfig.get('slack', channel_name)
         self.channel_key = channel_key
         self.client = WebClient(token=token)
-        log.debug(f'Writing to {channel_name}:{self.channel_key}')
+        self.log = logging.getLogger('Slackbot')
+        self.log.debug(f'Writing to {channel_name}:{self.channel_key}')
 
     def send_message(self, message):
         response = self.client.chat_postMessage(channel=self.channel_key,
                                                 text=message)
-        log.debug(f'Got {response} while writing {message} to {self.channel_key}')
+        self.log.debug(f'Got {response} while writing {message} to {self.channel_key}')
         return response
 
     def send_file(self, message, file_name):
@@ -36,5 +31,5 @@ class DaqSlackUpload:
         response = self.client.files_upload(channels=self.channel_key,
                                             file=file_name,
                                             title=message)
-        log.debug(f'Got {response} while writing {message} and {file_name} to {self.channel_key}')
+        self.log.debug(f'Got {response} while writing {message} and {file_name} to {self.channel_key}')
         return response

@@ -5,10 +5,6 @@ import pytz
 import logging
 import typing
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s %(name)s %(levelname)-8s %(message)s',
-    datefmt='%m-%d %H:%M')
 log = logging.getLogger()
 
 
