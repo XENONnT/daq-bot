@@ -50,7 +50,7 @@ class DaqBot:
             self.interval[0] += datetime.timedelta(hours=dt)
             self.interval[1] += datetime.timedelta(hours=dt)
 
-    def single_figure(self, dt: typing.Union[int, float], **kwargs):
+    def single_figure_since(self, dt: typing.Union[int, float], **kwargs):
         """
         Send a message to slack looking dt hours back
         :param dt: time in hours
@@ -136,6 +136,14 @@ def convert_last_hour_to_float(last_hours):
     return last_hours
 
 
+def convert_requested_runs_to_str(requested_runs):
+    try:
+        runs = requested_runs.split(' ')
+        return [f'{int(r):06}' for r in runs]
+    except ValueError:
+        return None
+
+
 def run_app(slack_bot, logger):
     """
     Run as an interactive slack app
@@ -146,11 +154,12 @@ def run_app(slack_bot, logger):
     app = make_app(api_token)
 
     @app.command("/online_monitor")
-    def online_monitor_command(ack, body, command, say):
+    def online_monitor_command(ack, body, say):
         user_id = body["user_id"]
-        last_hours = command.get('text', '')
-        channel_key = command.get('channels')
-        logger.info(f'Making the last {last_hours} h on request of {user_id}')
+        user_name = body["user_name"]
+        last_hours = body.get('text', '')
+        channel_key = body.get('channel_id')
+        logger.info(f'Making the last {last_hours} h on request of {user_name}')
 
         if last_hours == '':
             ack(f'<@{user_id}> you did not specify a duration, '
@@ -166,9 +175,40 @@ def run_app(slack_bot, logger):
         ack(f'<@{user_id}>. I got your request, give me a minute to fetch the data')
 
         try:
-            slack_bot.single_figure(last_hours, channel_key=channel_key)
+            slack_bot.single_figure_since(last_hours, channel_key=channel_key)
             say(f"<@{user_id}> asked for the last {last_hours} h (above) of the online monitor. "
                 f"The command is '/online_monitor <last_x_hours>")
+        except Exception as internal_e:
+            logger.error(f'Ran into {e}')
+            ack(f"I'm really sorry <@{user_id}> :sob:! Somehow this caused {str(internal_e)}. "
+                f"Please try again in a couple of minutes. "
+                f"I'm still in development phase and need a break.")
+            say(f'Hi channel, I need a short break :tea:. I\'m running '
+                f'into errors please wait a few minutes before sending '
+                f'new requests.')
+
+    @app.command("/online_monitor_runs")
+    def online_monitor_command(ack, body, say):
+        user_id = body["user_id"]
+        user_name = body["user_name"]
+        requested_runs = body.get('text')
+        channel_key = body.get('channel_id')
+        cmd = body.get('command')
+        logger.info(f'{cmd} Making the last {requested_runs} on request of {user_name}')
+
+        requested_runs = convert_requested_runs_to_str(requested_runs)
+        if requested_runs is None:
+            ack(f"Hi <@{user_id}>. You tried giving me the wrong input "
+                f"'{requested_runs}'. This should be a series of numbers like "
+                f"{cmd} 10000, 10001.")
+            return
+
+        ack(f'<@{user_id}>. I got your request, give me a minute to fetch the data')
+
+        try:
+            slack_bot.make_figure(requested_runs, channel_key=channel_key)
+            say(f"<@{user_id}> asked for runs {requested_runs} (above) of the online monitor. "
+                f"The command is of the format is <{cmd} 10000 10001>")
         except Exception as internal_e:
             logger.error(f'Ran into {e}')
             ack(f"I'm really sorry <@{user_id}> :sob:! Somehow this caused {str(internal_e)}. "
