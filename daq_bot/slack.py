@@ -1,6 +1,4 @@
-import daq_bot
-from slack import WebClient
-from slack.errors import SlackApiError
+from slack_sdk import WebClient
 import utilix
 import os
 import logging
@@ -19,17 +17,21 @@ class DaqSlackUpload:
         self.log = logging.getLogger('Slackbot')
         self.log.debug(f'Writing to {channel_name}:{self.channel_key}')
 
-    def send_message(self, message):
-        response = self.client.chat_postMessage(channel=self.channel_key,
+    def send_message(self, message, channel_key=None):
+        if channel_key is None:
+            channel_key = self.channel_key
+        response = self.client.chat_postMessage(channel=channel_key,
                                                 text=message)
-        self.log.debug(f'Got {response} while writing {message} to {self.channel_key}')
+        self.log.debug(f'Got {response} while writing {message} to {channel_key}')
         return response
 
-    def send_file(self, message, file_name):
+    def send_file(self, message, file_name, channel_key=None):
+        if channel_key is None:
+            channel_key = self.channel_key
         if not os.path.exists(file_name):
             raise FileNotFoundError(f'{file_name} does not exits')
-        response = self.client.files_upload(channels=self.channel_key,
+        response = self.client.files_upload(channels=channel_key,
                                             file=file_name,
                                             title=message)
-        self.log.debug(f'Got {response} while writing {message} and {file_name} to {self.channel_key}')
+        self.log.debug(f'Got {response} while writing {message} and {file_name} to {channel_key}')
         return response
