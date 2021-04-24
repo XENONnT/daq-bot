@@ -9,6 +9,9 @@ import time
 import online_monitor as olmo
 import os
 import typing
+from slack_bolt import App
+from slack_bolt.adapter.socket_mode import SocketModeHandler
+import utilix
 
 
 class DaqBot:
@@ -25,7 +28,7 @@ class DaqBot:
         self.interval = None
         self.testing = testing
 
-    def make_figure(self, runs):
+    def make_figure(self, runs, add_message ='', **kwargs):
         """Make a figure in the online monitor based on the selected figures"""
         if not len(runs):
             self.log.info('No runs')
@@ -33,14 +36,11 @@ class DaqBot:
         # Rotate save folder for bookkeeping
         self.set_figure_folder()
         path = monitor._single_fig(run_id=runs)
-        dt = self.interval[1] - self.interval[0]
-        message = (f'Online monitor update {runs[0]}-{runs[-1]}, next will be in '
-                   f'{dt.seconds / 3600:.1f} h. '
-                   f'See #online-monitor-plots for more plots.')
+        message = f'Online monitor update {runs[0]}-{runs[-1]}' + add_message
         if not self.testing:
             # DO the slack upload
-            response = self.slackapi.send_file(message, path)
-            self.log.info(f'Upload successful {response}')
+            response = self.slackapi.send_file(message, path, **kwargs)
+            self.log.debug(f'Upload successful {response}')
 
     def set_new_interval(self, dt):
         """If not set, get it starting from midnight, otherwise just up with dt hours"""
@@ -49,6 +49,18 @@ class DaqBot:
         else:
             self.interval[0] += datetime.timedelta(hours=dt)
             self.interval[1] += datetime.timedelta(hours=dt)
+
+    def single_figure(self, dt: typing.Union[int, float], **kwargs):
+        """
+        Send a message to slack looking dt hours back
+        :param dt: time in hours
+        :return:
+        """
+        t_start = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(hours=dt)
+        runs = daq_bot.get_runs(start=t_start)
+        self.log.info(f'Writing only figures for last {dt} h. Runs:\n{runs}')
+        self.make_figure(runs, **kwargs)
+        self.log.debug(f'Done writing')
 
     def infinite_loop(self,
                       dt: typing.Union[int, float],
@@ -68,9 +80,12 @@ class DaqBot:
                 self.log.warning(f'Skipping {self.interval} since it is old')
                 self.set_new_interval(dt)
                 continue
+            dt = self.interval[1] - self.interval[0]
+            message = (f'next will be in {dt.seconds / 3600:.1f} h. '
+                       f'See #online-monitor-plots for more plots.')
             try:
                 runs = daq_bot.get_runs(*self.interval)
-                self.make_figure(runs)
+                self.make_figure(runs, add_message=message)
                 self.set_new_interval(dt)
             except Exception as e:
                 self.log.critical(f'Ran into {e}, sleep and retry', exc_info=e)
@@ -87,9 +102,94 @@ class DaqBot:
         self.log.debug(f'Set folder to {dest}')
 
 
+def make_app(api_token):
+    """Create a slack app"""
+    app = App(token=api_token)
+
+    @app.command("/test")
+    def hello_command(ack, body, command):
+        """"""
+        user_id = body["user_id"]
+        ack(f"Hi, <@{user_id}>! You were saying: {command['text']}")
+
+    @app.event("app_mention")
+    def event_test(say):
+        say("Hi there!")
+    return app
+
+
+def run_infinite(slack_bot, logger):
+    """
+    Run the slack bot in an infinite loop and update very args.interval hours
+    """
+    logger.info('Starting loop')
+    slack_bot.infinite_loop(dt=float(args.interval), only_new=not args.plot_old)
+    logger.info('Shut down nicely, bye bye')
+
+
+def convert_last_hour_to_float(last_hours):
+    """Convert the user input to float and return None if impossible"""
+    try:
+        last_hours = float(last_hours)
+    except ValueError:
+        return None
+    return last_hours
+
+
+def run_app(slack_bot, logger):
+    """
+    Run as an interactive slack app
+    """
+    logger.info('Starting app')
+    app_token = utilix.uconfig.get('slack', 'slack_app_token')
+    api_token = utilix.uconfig.get('slack', 'slack_api_token')
+    app = make_app(api_token)
+
+    @app.command("/online_monitor")
+    def online_monitor_command(ack, body, command, say):
+        user_id = body["user_id"]
+        last_hours = command.get('text', '')
+        channel_key = command.get('channels')
+        logger.info(f'Making the last {last_hours} h on request of {user_id}')
+
+        if last_hours == '':
+            ack(f'<@{user_id}> you did not specify a duration, '
+                f'let me assume you wanted 1 hour.')
+            last_hours = 1
+        else:
+            last_hours = convert_last_hour_to_float(last_hours)
+            if last_hours is None:
+                ack(f"Hi <@{user_id}>. You tried giving me the"
+                    f" wrong input '{last_hours}'. This should be number.")
+                return
+
+        ack(f'<@{user_id}>. I got your request, give me a minute to fetch the data')
+
+        try:
+            slack_bot.single_figure(last_hours, channel_key=channel_key)
+            say(f"<@{user_id}> asked for the last {last_hours} h (above) of the online monitor. "
+                f"The command is '/online_monitor <last_x_hours>")
+        except Exception as internal_e:
+            logger.error(f'Ran into {e}')
+            ack(f"I'm really sorry <@{user_id}> :sob:! Somehow this caused {str(internal_e)}. "
+                f"Please try again in a couple of minutes. "
+                f"I'm still in development phase and need a break.")
+            say(f'Hi channel, I need a short break :tea:. I\'m running '
+                f'into errors please wait a few minutes before sending '
+                f'new requests.')
+
+    try:
+        SocketModeHandler(app, app_token).start()
+    except (SystemError, SystemExit, KeyboardInterrupt) as e:
+        logger.info(f'Forced stop {e}, stopping')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Online monitor slack bot")
+    parser.add_argument(
+        '--mode', type=str, default='infinite',
+        help="Run mode <app|infinite>")
     parser.add_argument(
         '--store_at', type=str, default='./figures',
         help="Where to store the figures (should be a folder)")
@@ -119,7 +219,7 @@ if __name__ == '__main__':
             raise ModuleNotFoundError
         import daqnt
 
-        log_name = f'daq-bot_{hostname}_{args.slack_channel}'
+        log_name = f'daq-bot_{args.mode}_{hostname}_{args.slack_channel}'
         log = daqnt.get_daq_logger(log_name, log_name, level=args.logging_level)
     except ModuleNotFoundError:
         logging.basicConfig(
@@ -135,6 +235,10 @@ if __name__ == '__main__':
 
     log.info('Getting bot')
     bot = DaqBot(log, monitor, slackapi, figures_base=args.store_at, testing=args.test, )
-    log.info('Starting loop')
-    bot.infinite_loop(dt=float(args.interval), only_new=not args.plot_old)
-    log.info('Shut down nicely, bye bye')
+    if args.mode == 'infinite':
+        run_infinite(bot, log)
+    elif args.mode == 'app':
+        run_app(bot, log)
+    else:
+        raise ValueError('Choose either infinite or app')
+    log.info('We have reached the end, bye bye')
