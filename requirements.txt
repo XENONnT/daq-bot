@@ -1,5 +1,5 @@
-slack
-slackclient
+slack_sdk
+slack_bolt
 utilix
 pytz
 # Optional:
