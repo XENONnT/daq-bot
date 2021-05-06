@@ -80,8 +80,7 @@ class DaqBot:
                 self.log.warning(f'Skipping {self.interval} since it is old')
                 self.set_new_interval(dt)
                 continue
-            dt = self.interval[1] - self.interval[0]
-            message = (f'next will be in {dt.seconds / 3600:.1f} h. '
+            message = (f'next will be in {dt:.1f} h. '
                        f'See #online-monitor-plots for more plots.')
             try:
                 runs = daq_bot.get_runs(*self.interval)
