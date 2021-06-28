@@ -1,3 +1,9 @@
+0.1.0 / 2021-06-28
+--------------------
+- Use Slack app for online monitoring (#4)
+- Allow threaded messages (#5)
+- Fix setup for test (#3)
+
 0.0.2 / 2021-03-22
 --------------------
 - bugfix in sending messages (c763dd1, 003b09b)
