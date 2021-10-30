@@ -178,7 +178,7 @@ def run_app(slack_bot, logger):
             say(f"<@{user_id}> asked for the last {last_hours} h (above) of the online monitor. "
                 f"The command is '/online_monitor <last_x_hours>")
         except Exception as internal_e:
-            logger.error(f'Ran into {e}')
+            logger.error(f'Ran into {internal_e}')
             ack(f"I'm really sorry <@{user_id}> :sob:! Somehow this caused {str(internal_e)}. "
                 f"Please try again in a couple of minutes. "
                 f"I'm still in development phase and need a break.")
