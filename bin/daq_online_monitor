@@ -28,7 +28,7 @@ class DaqBot:
         self.interval = None
         self.testing = testing
 
-    def make_figure(self, runs, add_message ='', **kwargs):
+    def make_figure(self, runs, add_message='', **kwargs):
         """Make a figure in the online monitor based on the selected figures"""
         if not len(runs):
             self.log.info('No runs')
@@ -93,7 +93,7 @@ class DaqBot:
                 self.log.critical(f'{e}, stopping')
                 break
 
-    def set_figure_folder(self,):
+    def set_figure_folder(self, ):
         now = datetime.datetime.utcnow()
         dest = os.path.join(self.figures_base, f'{now.month:02}.{now.day:02}')
         os.makedirs(dest, exist_ok=True)
@@ -114,6 +114,7 @@ def make_app(api_token):
     @app.event("app_mention")
     def event_test(say):
         say("Hi there!")
+
     return app
 
 
@@ -223,6 +224,34 @@ def run_app(slack_bot, logger):
         logger.info(f'Forced stop {e}, stopping')
 
 
+def main(args):
+    if args.mode == 'infinite':
+        run_infinite(bot, log)
+    elif args.mode == 'app':
+        run_app(bot, log)
+
+
+def undying_main(args):
+    while True:
+        try:
+            main(args)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as fatal_error:
+            log.debug(fatal_error, exc_info=True)
+            log.error(f'Fatal warning:\tran into {fatal_error}. Try '
+                      f'logging error and restart the dispatcher')
+            try:
+                slackapi.send_message(f'Online monitor {args.mode} just died '
+                                      f'({fatal_error}). Let\'s retry')
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except Exception:
+                pass
+            log.sleep(60)
+            log.warning('Restarting main loop')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Online monitor slack bot")
@@ -274,10 +303,7 @@ if __name__ == '__main__':
 
     log.info('Getting bot')
     bot = DaqBot(log, monitor, slackapi, figures_base=args.store_at, testing=args.test, )
-    if args.mode == 'infinite':
-        run_infinite(bot, log)
-    elif args.mode == 'app':
-        run_app(bot, log)
-    else:
-        raise ValueError('Choose either infinite or app')
+    if args.mode not in ['infinite', 'app']:
+        raise RuntimeError('Choose either "infinite" or "app"')
+    undying_main(args)
     log.info('We have reached the end, bye bye')
