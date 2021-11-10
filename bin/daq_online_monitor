@@ -243,7 +243,8 @@ def undying_main(args):
                       f'logging error and restart the dispatcher')
             try:
                 slackapi.send_message(f'Online monitor {args.mode} just died '
-                                      f'({fatal_error}). Let\'s retry')
+                                      f'({fatal_error}). Let\'s retry',
+                                      add_tags='daq')
             except (KeyboardInterrupt, SystemExit):
                 raise
             except Exception:
