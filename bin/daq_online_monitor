@@ -57,7 +57,7 @@ class DaqBot:
         :return:
         """
         t_start = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(hours=dt)
-        runs = daq_bot.get_runs(start=t_start)
+        runs = daq_bot.get_runs(start=t_start, detectors=None)
         self.log.info(f'Writing only figures for last {dt} h. Runs:\n{runs}')
         self.make_figure(runs, **kwargs)
         self.log.debug(f'Done writing')
@@ -83,7 +83,7 @@ class DaqBot:
             message = (f'next will be in {dt:.1f} h. '
                        f'See #online-monitor-plots for more plots.')
             try:
-                runs = daq_bot.get_runs(*self.interval)
+                runs = daq_bot.get_runs(*self.interval, detectors=None)
                 self.make_figure(runs, add_message=message)
                 self.set_new_interval(dt)
             except Exception as e:
