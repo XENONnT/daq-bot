@@ -1,3 +1,12 @@
+0.1.1 / 2022-09-29
+-------------------
+## What's Changed
+* Allow MV/NV runs to be found by @JoranAngevaare in https://github.com/XENONnT/daq-bot/pull/7
+* log.sleep -> time.sleep by @JoranAngevaare in https://github.com/XENONnT/daq-bot/pull/8
+
+
+**Full Changelog**: https://github.com/XENONnT/daq-bot/compare/v0.1.0...v0.1.1
+
 0.1.0 / 2021-06-28
 --------------------
 - Use Slack app for online monitoring (#4)
