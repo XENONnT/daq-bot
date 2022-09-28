@@ -249,7 +249,7 @@ def undying_main(args):
                 raise
             except Exception:
                 pass
-            log.sleep(60)
+            time.sleep(60)
             log.warning('Restarting main loop')
 
 
