@@ -95,7 +95,7 @@ class DaqBot:
 
     def set_figure_folder(self, ):
         now = datetime.datetime.utcnow()
-        dest = os.path.join(self.figures_base, f'{now.month:02}.{now.day:02}')
+        dest = os.path.join(self.figures_base, now.year, f'{now.month:02}.{now.day:02}')
         os.makedirs(dest, exist_ok=True)
         self.monitor.set_config({'store_figures_at': dest})
         self.log.debug(f'Set folder to {dest}')
