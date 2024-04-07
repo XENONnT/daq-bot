@@ -22,9 +22,17 @@ def get_runs(start: datetime.datetime,
     # Run interval |1----|2----|3----|4----|
     # start stop      |------------|
     # Query will return runs interval 1,2,3.
-    query = {"$or": [{"end": None},
-                     {'end': {'$gt': start}}],
-             "start": {"$lt": stop}}
+
+    six_hours_ago = datetime.datetime.now(pytz.utc) - datetime.timedelta(hours=6)
+    log.debug(f'Six hours ago is {six_hours_ago}')
+    query = {
+        "$or": [
+            {"end": None, "start": {"$gte": six_hours_ago}},
+            {"end": {"$gt": start}}
+        ],
+        "start": {"$lt": stop}
+    }
+    
     if detectors:
         query.update({'detectors': detectors})
     log.debug(f'Querying {query}')
