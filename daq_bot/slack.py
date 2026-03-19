@@ -60,8 +60,14 @@ class DaqSlackUpload:
             channel_key = self.channel_key
         if not os.path.exists(file_name):
             raise FileNotFoundError(f'{file_name} does not exits')
-        response = self.client.files_upload(channels=channel_key,
-                                            file=file_name,
-                                            title=message)
+        # files.upload is deprecated in Slack API; prefer files_upload_v2.
+        if hasattr(self.client, 'files_upload_v2'):
+            response = self.client.files_upload_v2(channel=channel_key,
+                                                   file=file_name,
+                                                   title=message)
+        else:
+            response = self.client.files_upload(channels=channel_key,
+                                                file=file_name,
+                                                title=message)
         self.log.debug(f'Got {response} while writing {message} and {file_name} to {channel_key}')
         return response
